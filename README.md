@@ -16,13 +16,13 @@ A standalone Python tool that fetches team performance data from GitHub and Goog
 - Python 3.8 or higher
 - GitHub Personal Access Token with appropriate permissions
 - Google Cloud Service Account for Sheets API access
-- Access to the GitHub organization ("adnabu")
+- Access to the GitHub organization ("AdNabu-Team")
 
 ## Installation
 
 1. **Clone or navigate to the project directory:**
    ```bash
-   cd /Users/arjunadnabu/Projects/github-team-metrics
+   cd /Users/arjunAdNabu-Team/Projects/github-team-metrics
    ```
 
 2. **Create a virtual environment:**
@@ -49,7 +49,7 @@ Edit `.env` and fill in your credentials:
 ```bash
 # GitHub Configuration
 GITHUB_TOKEN=your_github_personal_access_token_here
-GITHUB_ORG=adnabu
+GITHUB_ORG=AdNabu-Team
 
 # Google Sheets Configuration
 GOOGLE_CREDENTIALS_PATH=./credentials/google_service_account.json
@@ -119,7 +119,7 @@ The script will automatically detect these columns and parse the data.
 ### Basic Usage (Last 30 Days)
 
 ```bash
-cd /Users/arjunadnabu/Projects/github-team-metrics
+cd /Users/arjunAdNabu-Team/Projects/github-team-metrics
 source venv/bin/activate
 python main.py
 ```
@@ -145,14 +145,14 @@ GitHub Team Performance Metrics - Starting
 ======================================================================
 Loading configuration...
 Configuration loaded successfully
-Initializing GitHub client for organization: adnabu
+Initializing GitHub client for organization: AdNabu-Team
 Checking GitHub API rate limits...
 Rate limit: 4998/5000 requests remaining
 Fetching data from 2024-12-16 to 2025-01-15
 Fetching GitHub metrics (this may take several minutes)...
 Please be patient while we collect data from all repositories...
-[1/15] Fetching data from adnabu/adnabu-api
-[2/15] Fetching data from adnabu/shopify-react
+[1/15] Fetching data from AdNabu-Team/AdNabu-Team-api
+[2/15] Fetching data from AdNabu-Team/shopify-react
 ...
 ✓ Collected data from 15 repositories
 ✓ Found 342 commits
@@ -292,7 +292,7 @@ Average commits per day during the measurement period.
 **Issue:** Empty GitHub data despite having commits
 
 **Check:**
-1. Verify the organization name is correct ("adnabu")
+1. Verify the organization name is correct ("AdNabu-Team")
 2. Check the date range - ensure there were commits in the last 30 days
 3. Verify your GitHub token has the correct scopes:
    - `repo`, `read:org`, `read:user`
@@ -335,7 +335,7 @@ All configuration options in `.env`:
 ```bash
 # Required
 GITHUB_TOKEN=your_token_here
-GITHUB_ORG=adnabu
+GITHUB_ORG=AdNabu-Team
 GOOGLE_CREDENTIALS_PATH=./credentials/google_service_account.json
 GOOGLE_SHEET_ID=your_sheet_id
 

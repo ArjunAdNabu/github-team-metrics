@@ -70,7 +70,7 @@ def load_config() -> Config:
         )
 
     # Optional fields with defaults
-    github_org = os.getenv('GITHUB_ORG', 'adnabu')
+    github_org = os.getenv('GITHUB_ORG', 'AdNabu-Team')
     google_sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Sheet1')
     days_back = int(os.getenv('DAYS_BACK', '30'))
     start_date = os.getenv('START_DATE')
