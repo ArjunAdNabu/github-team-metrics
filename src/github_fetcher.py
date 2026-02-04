@@ -327,9 +327,16 @@ class GitHubClient:
         cursor = None
         has_next_page = True
 
-        # Convert dates for comparison
-        since_dt = datetime.fromisoformat(since)
-        until_dt = datetime.fromisoformat(until)
+        # Convert dates for comparison (handle timezone)
+        from datetime import timezone
+
+        since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=timezone.utc)
+
+        until_dt = datetime.fromisoformat(until.replace('Z', '+00:00'))
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
 
         while has_next_page:
             try:

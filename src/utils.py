@@ -102,16 +102,24 @@ def calculate_date_range(
         end_date: Optional end date in YYYY-MM-DD format
 
     Returns:
-        Tuple of (start_date, end_date) in ISO format
+        Tuple of (start_date, end_date) in ISO format with timezone
     """
+    from datetime import timezone
+
     if start_date and end_date:
         # Use provided dates
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
     else:
-        # Calculate from days_back
-        end = datetime.now()
+        # Calculate from days_back (timezone-aware)
+        end = datetime.now(timezone.utc)
         start = end - timedelta(days=days_back)
+
+    # Ensure timezone-aware
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
 
     return start.isoformat(), end.isoformat()
 
