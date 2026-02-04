@@ -21,6 +21,7 @@ class Config:
 
     # Optional fields with defaults
     google_sheet_name: str = 'Sheet1'
+    user_mapping_file: str = './user_mapping.json'
     days_back: int = 30
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -72,6 +73,7 @@ def load_config() -> Config:
     # Optional fields with defaults
     github_org = os.getenv('GITHUB_ORG', 'AdNabu-Team')
     google_sheet_name = os.getenv('GOOGLE_SHEET_NAME', 'Sheet1')
+    user_mapping_file = os.getenv('USER_MAPPING_FILE', './user_mapping.json')
     days_back = int(os.getenv('DAYS_BACK', '30'))
     start_date = os.getenv('START_DATE')
     end_date = os.getenv('END_DATE')
@@ -90,6 +92,7 @@ def load_config() -> Config:
         google_credentials_path=credentials_path,
         google_sheet_id=google_sheet_id,
         google_sheet_name=google_sheet_name,
+        user_mapping_file=user_mapping_file,
         days_back=days_back,
         start_date=start_date,
         end_date=end_date,
@@ -135,3 +138,33 @@ def validate_config(config: Config) -> None:
     # Validate timeout
     if config.request_timeout <= 0:
         raise ValueError(f"REQUEST_TIMEOUT must be positive, got: {config.request_timeout}")
+
+
+def load_user_mapping(mapping_file: str) -> dict:
+    """
+    Load user mapping from JSON file.
+
+    Args:
+        mapping_file: Path to user mapping JSON file
+
+    Returns:
+        Dictionary mapping Sheet names to GitHub usernames
+    """
+    import json
+
+    if not os.path.exists(mapping_file):
+        # Return empty dict if file doesn't exist (optional feature)
+        return {}
+
+    try:
+        with open(mapping_file, 'r') as f:
+            data = json.load(f)
+
+        # Filter out comments (keys starting with _)
+        mapping = {k: v for k, v in data.items() if not k.startswith('_')}
+
+        return mapping
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in user mapping file: {e}")
+    except Exception as e:
+        raise ValueError(f"Failed to load user mapping: {e}")

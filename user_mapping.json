@@ -1,0 +1,12 @@
+{
+  "_comment": "Manual mapping from Google Sheets 'Assigned' names to GitHub usernames",
+  "_instructions": "Add entries in the format: 'Sheet Name': 'github-username'",
+
+  "Rahul": "rahul-adnabu",
+  "Glenn": "glenn-adnabu",
+  "Yash": "Yash-Adnabu",
+  "Amit": "amit-adnabu",
+  "Deepak": "deepakpannu03",
+
+  "_note_deepak": "There are two users with 'deepak' in username. If 'Deepak' in sheets refers to Devanshu Taneja, change to 'devanshtaneja22'"
+}

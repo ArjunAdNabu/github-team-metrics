@@ -4,7 +4,7 @@ import sys
 import time
 from datetime import datetime
 
-from config import load_config, validate_config
+from config import load_config, validate_config, load_user_mapping
 from src.utils import (
     setup_logging,
     calculate_date_range,
@@ -127,7 +127,13 @@ def main():
 
         # 8. Combine datasets
         logger.info("Combining GitHub and ticket data...")
-        data_combiner = DataCombiner()
+
+        # Load user mapping
+        user_mapping = load_user_mapping(config.user_mapping_file)
+        if user_mapping:
+            logger.info(f"Loaded {len(user_mapping)} manual user mappings")
+
+        data_combiner = DataCombiner(team_member_map=user_mapping)
         combined_data = data_combiner.merge_datasets(
             aggregated_github,
             ticket_metrics
