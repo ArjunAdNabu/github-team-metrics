@@ -28,13 +28,15 @@ class GitHubClient:
         self.org_name = org_name
         self.timeout = timeout
         self.api_url = 'https://api.github.com/graphql'
+        self.base_url = 'https://api.github.com'  # REST API base URL
 
         self.session = requests.Session()
-        self.session.headers.update({
+        self.headers = {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json',
             'Accept': 'application/vnd.github.v4+json'
-        })
+        }
+        self.session.headers.update(self.headers)
 
     @retry_with_exponential_backoff(
         max_retries=3,

@@ -18,3 +18,11 @@ openpyxl==3.1.2
 # Utilities
 tqdm==4.66.1
 retry==0.9.2
+
+# AI Providers (for individual reports)
+google-generativeai==0.8.3  # Gemini AI (default, free tier)
+
+# PDF Generation (for individual reports)
+reportlab==4.0.9            # PDF creation
+matplotlib==3.8.2           # Charts and visualizations
+Pillow==10.2.0              # Image handling for PDFs
