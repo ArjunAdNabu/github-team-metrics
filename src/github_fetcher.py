@@ -676,9 +676,9 @@ class GitHubMetricsCollector:
                     'reviewed_at': review['createdAt']
                 })
 
-                # Calculate review time
+                # Calculate review time (how long it took the reviewer to review)
                 review_time = calculate_hours_between(pr['createdAt'], review['createdAt'])
-                user_metrics[username]['review_times'].append(review_time)
+                user_metrics[reviewer_login]['review_times'].append(review_time)
 
         # Process issues
         for issue in issues:

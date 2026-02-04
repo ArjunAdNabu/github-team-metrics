@@ -291,8 +291,16 @@ def calculate_hours_between(start: str, end: str) -> float:
         Hours between the two datetimes
     """
     try:
-        start_dt = datetime.fromisoformat(start) if isinstance(start, str) else start
-        end_dt = datetime.fromisoformat(end) if isinstance(end, str) else end
+        # Handle GitHub's 'Z' timezone suffix
+        if isinstance(start, str):
+            start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+        else:
+            start_dt = start
+
+        if isinstance(end, str):
+            end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+        else:
+            end_dt = end
 
         delta = end_dt - start_dt
         return delta.total_seconds() / 3600
