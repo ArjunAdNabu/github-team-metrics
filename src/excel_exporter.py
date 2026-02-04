@@ -39,7 +39,7 @@ class ExcelExporter:
         # Title
         ws['A1'] = 'Team Performance Summary'
         ws['A1'].font = Font(size=16, bold=True)
-        ws.merge_cells('A1:D1')
+        ws.merge_cells('A1:G1')
 
         # Team-wide metrics
         total_commits = sum(d.get('total_commits', 0) for d in data)
@@ -47,6 +47,7 @@ class ExcelExporter:
         total_lines_deleted = sum(d.get('lines_deleted', 0) for d in data)
         total_prs = sum(d.get('prs_created', 0) for d in data)
         total_issues_closed = sum(d.get('issues_closed', 0) for d in data)
+        total_complexity_score = sum(d.get('total_complexity_score', 0) for d in data)
         total_reviews = sum(d.get('reviews_given', 0) for d in data)
         total_tickets = sum(d.get('total_tickets', 0) for d in data)
         total_tickets_closed = sum(d.get('tickets_closed', 0) for d in data)
@@ -60,6 +61,7 @@ class ExcelExporter:
             ('Total Lines Deleted', total_lines_deleted),
             ('Total Pull Requests', total_prs),
             ('Total Issues Closed', total_issues_closed),
+            ('Total Complexity Score', round(total_complexity_score, 1)),
             ('Total Code Reviews', total_reviews),
             ('Total Tickets', total_tickets),
             ('Tickets Closed', total_tickets_closed),
@@ -67,6 +69,7 @@ class ExcelExporter:
             ('Team SLA Success Rate %', round(((total_tickets_closed - total_sla_failures) / total_tickets_closed * 100), 1) if total_tickets_closed > 0 else 100.0),
             ('Average Commits per Person', round(total_commits / len(data), 1) if data else 0),
             ('Average PRs per Person', round(total_prs / len(data), 1) if data else 0),
+            ('Average Complexity Score per Person', round(total_complexity_score / len(data), 1) if data else 0),
         ]
 
         for label, value in metrics:
@@ -89,9 +92,10 @@ class ExcelExporter:
         ws[f'C{row}'] = 'PRs'
         ws[f'D{row}'] = 'Reviews'
         ws[f'E{row}'] = 'Tickets'
-        ws[f'F{row}'] = 'Activity Score'
+        ws[f'F{row}'] = 'Complexity'
+        ws[f'G{row}'] = 'Activity Score'
 
-        for col in ['A', 'B', 'C', 'D', 'E', 'F']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
             ws[f'{col}{row}'].font = Font(bold=True)
             ws[f'{col}{row}'].fill = PatternFill(start_color='D3D3D3', fill_type='solid')
 
@@ -103,7 +107,8 @@ class ExcelExporter:
             ws[f'C{row}'] = user.get('prs_created', 0)
             ws[f'D{row}'] = user.get('reviews_given', 0)
             ws[f'E{row}'] = user.get('total_tickets', 0)
-            ws[f'F{row}'] = user.get('activity_score', 0)
+            ws[f'F{row}'] = user.get('total_complexity_score', 0)
+            ws[f'G{row}'] = user.get('activity_score', 0)
             row += 1
 
         # Auto-size columns
@@ -133,6 +138,7 @@ class ExcelExporter:
             ('PR Merge Rate %', 'pr_merge_rate'),
             ('Avg PR Size', 'avg_pr_size'),
             ('Issues Closed', 'issues_closed'),
+            ('Complexity Score', 'total_complexity_score'),
             ('Reviews Given', 'reviews_given'),
             ('Reviews Received', 'reviews_received'),
             ('Review Participation', 'review_participation'),

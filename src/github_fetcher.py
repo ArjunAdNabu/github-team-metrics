@@ -409,11 +409,60 @@ class GitHubClient:
                         author {
                             login
                         }
+                        labels(first: 10) {
+                            nodes {
+                                name
+                            }
+                        }
                         closedBy: timelineItems(first: 1, itemTypes: CLOSED_EVENT) {
                             nodes {
                                 ... on ClosedEvent {
                                     actor {
                                         login
+                                    }
+                                }
+                            }
+                        }
+                        projectItems(first: 5) {
+                            nodes {
+                                fieldValues(first: 10) {
+                                    nodes {
+                                        ... on ProjectV2ItemFieldNumberValue {
+                                            number
+                                            field {
+                                                ... on ProjectV2Field {
+                                                    name
+                                                }
+                                            }
+                                        }
+                                        ... on ProjectV2ItemFieldTextValue {
+                                            text
+                                            field {
+                                                ... on ProjectV2Field {
+                                                    name
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        timelineItems(first: 20, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+                            nodes {
+                                ... on CrossReferencedEvent {
+                                    source {
+                                        ... on PullRequest {
+                                            number
+                                            state
+                                        }
+                                    }
+                                }
+                                ... on ConnectedEvent {
+                                    subject {
+                                        ... on PullRequest {
+                                            number
+                                            state
+                                        }
                                     }
                                 }
                             }
@@ -484,6 +533,87 @@ class GitHubClient:
                 break
 
         return issues
+
+    def _extract_complexity_score(self, issue: Dict) -> Optional[float]:
+        """
+        Extract complexity score from project field values.
+
+        Args:
+            issue: Issue data with projectItems
+
+        Returns:
+            Complexity score as float, or None if not found
+        """
+        try:
+            project_items = issue.get('projectItems', {}).get('nodes', [])
+            for project_item in project_items:
+                field_values = project_item.get('fieldValues', {}).get('nodes', [])
+                for field_value in field_values:
+                    field = field_value.get('field', {})
+                    field_name = field.get('name', '').lower()
+
+                    # Look for complexity field (case-insensitive)
+                    if 'complexity' in field_name:
+                        # Try number field first
+                        if 'number' in field_value:
+                            return float(field_value['number'])
+                        # Try text field (in case it's stored as text)
+                        elif 'text' in field_value:
+                            try:
+                                return float(field_value['text'])
+                            except (ValueError, TypeError):
+                                pass
+            return None
+        except Exception as e:
+            logger.debug(f"Failed to extract complexity for issue: {e}")
+            return None
+
+    def _is_valid_issue(self, issue: Dict) -> bool:
+        """
+        Check if issue is valid for complexity scoring.
+
+        Excludes:
+        - Issues with "invalid" label
+        - Issues closed without any linked PRs (no changes made)
+
+        Args:
+            issue: Issue data
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Check for invalid label
+        labels = issue.get('labels', {}).get('nodes', [])
+        label_names = [label.get('name', '').lower() for label in labels]
+
+        if 'invalid' in label_names or 'duplicate' in label_names:
+            return False
+
+        # Check if there are linked PRs (indicates changes were made)
+        timeline_items = issue.get('timelineItems', {}).get('nodes', [])
+        has_linked_pr = False
+
+        for item in timeline_items:
+            # Check CrossReferencedEvent
+            if 'source' in item:
+                source = item.get('source', {})
+                if source and 'number' in source:
+                    has_linked_pr = True
+                    break
+
+            # Check ConnectedEvent
+            if 'subject' in item:
+                subject = item.get('subject', {})
+                if subject and 'number' in subject:
+                    has_linked_pr = True
+                    break
+
+        # If no linked PRs, consider invalid (closed without changes)
+        if not has_linked_pr:
+            logger.debug(f"Issue #{issue.get('number')} has no linked PRs")
+            return False
+
+        return True
 
 
 class GitHubMetricsCollector:
@@ -607,6 +737,8 @@ class GitHubMetricsCollector:
             'pr_additions': 0,
             'pr_deletions': 0,
             'issues_closed': 0,
+            'complexity_scores': [],
+            'issue_numbers': set(),  # Track issue numbers to avoid duplicates
             'reviews_given': [],
             'reviews_received': [],
             'review_times': [],
@@ -682,14 +814,28 @@ class GitHubMetricsCollector:
 
         # Process issues
         for issue in issues:
+            # Validate issue (skip invalid or duplicate issues)
+            if not self.client._is_valid_issue(issue):
+                continue
+
             # Get the user who closed the issue
             closed_by_nodes = issue.get('closedBy', {}).get('nodes', [])
             if closed_by_nodes:
                 closer = closed_by_nodes[0].get('actor', {})
                 if closer and closer.get('login'):
                     username = closer['login']
-                    user_metrics[username]['issues_closed'] += 1
-                    user_metrics[username]['active_repos'].add(issue['repo'])
+                    issue_number = issue.get('number')
+
+                    # Avoid counting duplicate issues for the same user
+                    if issue_number not in user_metrics[username]['issue_numbers']:
+                        user_metrics[username]['issues_closed'] += 1
+                        user_metrics[username]['active_repos'].add(issue['repo'])
+                        user_metrics[username]['issue_numbers'].add(issue_number)
+
+                        # Extract and track complexity score
+                        complexity = self.client._extract_complexity_score(issue)
+                        if complexity is not None:
+                            user_metrics[username]['complexity_scores'].append(complexity)
 
         # Calculate derived metrics
         result = {}
@@ -720,6 +866,7 @@ class GitHubMetricsCollector:
                 'pr_merge_rate': round((prs_merged / prs_created * 100), 1) if prs_created > 0 else 0,
                 'avg_pr_size': round((metrics['pr_additions'] + metrics['pr_deletions']) / prs_created) if prs_created > 0 else 0,
                 'issues_closed': metrics['issues_closed'],
+                'total_complexity_score': round(sum(metrics['complexity_scores']), 1) if metrics['complexity_scores'] else 0,
                 'reviews_given': reviews_given,
                 'reviews_received': reviews_received,
                 'review_participation': round(reviews_given / reviews_received, 2) if reviews_received > 0 else 0,

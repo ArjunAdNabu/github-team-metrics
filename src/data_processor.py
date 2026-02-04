@@ -184,6 +184,7 @@ class DataCombiner:
             'pr_merge_rate': github_metrics.get('pr_merge_rate', 0),
             'avg_pr_size': github_metrics.get('avg_pr_size', 0),
             'issues_closed': github_metrics.get('issues_closed', 0),
+            'total_complexity_score': github_metrics.get('total_complexity_score', 0),
             'reviews_given': github_metrics.get('reviews_given', 0),
             'reviews_received': github_metrics.get('reviews_received', 0),
             'review_participation': github_metrics.get('review_participation', 0),
