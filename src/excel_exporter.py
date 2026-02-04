@@ -43,7 +43,10 @@ class ExcelExporter:
 
         # Team-wide metrics
         total_commits = sum(d.get('total_commits', 0) for d in data)
+        total_lines_added = sum(d.get('lines_added', 0) for d in data)
+        total_lines_deleted = sum(d.get('lines_deleted', 0) for d in data)
         total_prs = sum(d.get('prs_created', 0) for d in data)
+        total_issues_closed = sum(d.get('issues_closed', 0) for d in data)
         total_reviews = sum(d.get('reviews_given', 0) for d in data)
         total_tickets = sum(d.get('total_tickets', 0) for d in data)
         total_tickets_closed = sum(d.get('tickets_closed', 0) for d in data)
@@ -52,7 +55,10 @@ class ExcelExporter:
         metrics = [
             ('Total Team Members', len(data)),
             ('Total Commits', total_commits),
+            ('Total Lines Added', total_lines_added),
+            ('Total Lines Deleted', total_lines_deleted),
             ('Total Pull Requests', total_prs),
+            ('Total Issues Closed', total_issues_closed),
             ('Total Code Reviews', total_reviews),
             ('Total Tickets', total_tickets),
             ('Tickets Closed', total_tickets_closed),
@@ -116,10 +122,14 @@ class ExcelExporter:
             ('Email', 'email'),
             ('Commits', 'total_commits'),
             ('Commit Freq', 'commit_frequency'),
+            ('Lines Added', 'lines_added'),
+            ('Lines Deleted', 'lines_deleted'),
+            ('Lines Changed', 'lines_changed'),
             ('PRs Created', 'prs_created'),
             ('PRs Merged', 'prs_merged'),
             ('PR Merge Rate %', 'pr_merge_rate'),
             ('Avg PR Size', 'avg_pr_size'),
+            ('Issues Closed', 'issues_closed'),
             ('Reviews Given', 'reviews_given'),
             ('Reviews Received', 'reviews_received'),
             ('Review Participation', 'review_participation'),

@@ -375,6 +375,116 @@ class GitHubClient:
 
         return prs
 
+    def get_issues(
+        self,
+        repo_name: str,
+        since: str,
+        until: str
+    ) -> List[Dict]:
+        """
+        Fetch closed issues for a repository.
+
+        Args:
+            repo_name: Repository name (owner/repo format)
+            since: Start date (ISO format)
+            until: End date (ISO format)
+
+        Returns:
+            List of issue data dictionaries
+        """
+        query = """
+        query($owner: String!, $repo: String!, $cursor: String) {
+            repository(owner: $owner, name: $repo) {
+                issues(first: 100, after: $cursor, states: CLOSED, orderBy: {field: CREATED_AT, direction: DESC}) {
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
+                    nodes {
+                        number
+                        title
+                        createdAt
+                        closedAt
+                        state
+                        author {
+                            login
+                        }
+                        closedBy: timelineItems(first: 1, itemTypes: CLOSED_EVENT) {
+                            nodes {
+                                ... on ClosedEvent {
+                                    actor {
+                                        login
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        parts = repo_name.split('/')
+        if len(parts) != 2:
+            logger.warning(f"Invalid repo name format: {repo_name}")
+            return []
+
+        owner, repo = parts
+        issues = []
+        cursor = None
+        has_next_page = True
+
+        # Convert dates for comparison (handle timezone)
+        from datetime import timezone
+
+        since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=timezone.utc)
+
+        until_dt = datetime.fromisoformat(until.replace('Z', '+00:00'))
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
+
+        while has_next_page:
+            try:
+                data = self.execute_query(query, {
+                    'owner': owner,
+                    'repo': repo,
+                    'cursor': cursor
+                })
+
+                repo_data = data.get('repository')
+                if not repo_data:
+                    logger.debug(f"{repo_name}: Repository not accessible")
+                    break
+
+                issue_data = repo_data.get('issues', {})
+                nodes = issue_data.get('nodes', [])
+
+                # Filter issues by closed date
+                for issue in nodes:
+                    if not issue.get('closedAt'):
+                        continue
+
+                    closed_at = datetime.fromisoformat(issue['closedAt'].replace('Z', '+00:00'))
+                    if since_dt <= closed_at <= until_dt:
+                        issues.append(issue)
+                    elif closed_at < since_dt:
+                        # Issues are ordered by creation date desc, so we can stop
+                        has_next_page = False
+                        break
+
+                if has_next_page:
+                    page_info = issue_data.get('pageInfo', {})
+                    has_next_page = page_info.get('hasNextPage', False)
+                    cursor = page_info.get('endCursor')
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch issues for {repo_name}: {e}")
+                break
+
+        return issues
+
 
 class GitHubMetricsCollector:
     """High-level metrics collection and aggregation."""
@@ -397,15 +507,16 @@ class GitHubMetricsCollector:
         Collect metrics from all repositories.
 
         Returns:
-            Dictionary with repos, commits, pull_requests, reviews
+            Dictionary with repos, commits, pull_requests, issues
         """
         # Fetch all repositories
         repos = self.client.get_all_repositories()
 
         all_commits = []
         all_prs = []
+        all_issues = []
 
-        # Fetch commits and PRs for each repo
+        # Fetch commits, PRs, and issues for each repo
         for i, repo in enumerate(repos, 1):
             repo_name = repo.get('nameWithOwner', '')
             logger.info(f"[{i}/{len(repos)}] Fetching data from {repo_name}")
@@ -440,17 +551,33 @@ class GitHubMetricsCollector:
                 all_prs.extend(prs)
                 logger.debug(f"  Found {len(prs)} PRs")
 
+                # Get closed issues
+                issues = self.client.get_issues(
+                    repo_name,
+                    self.start_date,
+                    self.end_date
+                )
+
+                # Add repo info to each issue
+                for issue in issues:
+                    issue['repo'] = repo_name
+
+                all_issues.extend(issues)
+                logger.debug(f"  Found {len(issues)} closed issues")
+
             except Exception as e:
                 logger.warning(f"Failed to fetch data from {repo_name}: {e}")
                 continue
 
         logger.info(f"Total commits collected: {len(all_commits)}")
         logger.info(f"Total PRs collected: {len(all_prs)}")
+        logger.info(f"Total issues closed: {len(all_issues)}")
 
         return {
             'repos': repos,
             'commits': all_commits,
-            'pull_requests': all_prs
+            'pull_requests': all_prs,
+            'issues': all_issues
         }
 
     def aggregate_by_team_member(self, raw_data: Dict) -> Dict:
@@ -465,6 +592,7 @@ class GitHubMetricsCollector:
         """
         commits = raw_data.get('commits', [])
         prs = raw_data.get('pull_requests', [])
+        issues = raw_data.get('issues', [])
 
         # Initialize metrics storage
         user_metrics = defaultdict(lambda: {
@@ -472,10 +600,13 @@ class GitHubMetricsCollector:
             'email': '',
             'total_commits': 0,
             'commit_dates': [],
+            'commit_additions': 0,
+            'commit_deletions': 0,
             'prs_created': 0,
             'prs_merged': 0,
             'pr_additions': 0,
             'pr_deletions': 0,
+            'issues_closed': 0,
             'reviews_given': [],
             'reviews_received': [],
             'review_times': [],
@@ -493,6 +624,8 @@ class GitHubMetricsCollector:
                 user_metrics[username]['email'] = user.get('email', '')
                 user_metrics[username]['total_commits'] += 1
                 user_metrics[username]['commit_dates'].append(commit['committedDate'])
+                user_metrics[username]['commit_additions'] += commit.get('additions', 0)
+                user_metrics[username]['commit_deletions'] += commit.get('deletions', 0)
                 user_metrics[username]['active_repos'].add(commit['repo'])
 
         # Process PRs
@@ -547,6 +680,17 @@ class GitHubMetricsCollector:
                 review_time = calculate_hours_between(pr['createdAt'], review['createdAt'])
                 user_metrics[username]['review_times'].append(review_time)
 
+        # Process issues
+        for issue in issues:
+            # Get the user who closed the issue
+            closed_by_nodes = issue.get('closedBy', {}).get('nodes', [])
+            if closed_by_nodes:
+                closer = closed_by_nodes[0].get('actor', {})
+                if closer and closer.get('login'):
+                    username = closer['login']
+                    user_metrics[username]['issues_closed'] += 1
+                    user_metrics[username]['active_repos'].add(issue['repo'])
+
         # Calculate derived metrics
         result = {}
         num_days = (datetime.fromisoformat(self.end_date) -
@@ -559,15 +703,23 @@ class GitHubMetricsCollector:
             reviews_given = len(metrics['reviews_given'])
             reviews_received = len(metrics['reviews_received'])
 
+            # Calculate total lines changed (commits + PRs)
+            total_additions = metrics['commit_additions'] + metrics['pr_additions']
+            total_deletions = metrics['commit_deletions'] + metrics['pr_deletions']
+
             result[username] = {
                 'display_name': metrics['display_name'] or username,
                 'email': metrics['email'],
                 'total_commits': total_commits,
                 'commit_frequency': round(total_commits / num_days, 2),
+                'lines_added': total_additions,
+                'lines_deleted': total_deletions,
+                'lines_changed': total_additions + total_deletions,
                 'prs_created': prs_created,
                 'prs_merged': prs_merged,
                 'pr_merge_rate': round((prs_merged / prs_created * 100), 1) if prs_created > 0 else 0,
                 'avg_pr_size': round((metrics['pr_additions'] + metrics['pr_deletions']) / prs_created) if prs_created > 0 else 0,
+                'issues_closed': metrics['issues_closed'],
                 'reviews_given': reviews_given,
                 'reviews_received': reviews_received,
                 'review_participation': round(reviews_given / reviews_received, 2) if reviews_received > 0 else 0,

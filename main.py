@@ -83,6 +83,7 @@ def main():
             logger.info(f"✓ Collected data from {len(github_data['repos'])} repositories")
             logger.info(f"✓ Found {len(github_data['commits'])} commits")
             logger.info(f"✓ Found {len(github_data['pull_requests'])} pull requests")
+            logger.info(f"✓ Found {len(github_data['issues'])} issues closed")
         except Exception as e:
             logger.error(f"Failed to fetch GitHub data: {e}")
             raise
