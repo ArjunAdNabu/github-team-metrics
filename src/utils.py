@@ -306,3 +306,60 @@ def calculate_hours_between(start: str, end: str) -> float:
         return delta.total_seconds() / 3600
     except (ValueError, TypeError):
         return 0.0
+
+
+def calculate_business_hours_between(start: str, end: str) -> float:
+    """
+    Calculate business hours between two datetime strings, excluding weekends.
+
+    Weekends (Saturday and Sunday) are completely excluded from the calculation.
+
+    Args:
+        start: Start datetime (ISO format or parseable string)
+        end: End datetime (ISO format or parseable string)
+
+    Returns:
+        Business hours between the two datetimes (excluding weekends)
+    """
+    try:
+        # Parse datetimes
+        if isinstance(start, str):
+            start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+        else:
+            start_dt = start
+
+        if isinstance(end, str):
+            end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+        else:
+            end_dt = end
+
+        if start_dt >= end_dt:
+            return 0.0
+
+        total_hours = 0.0
+        current = start_dt
+
+        while current < end_dt:
+            # Check if current day is a weekend (5=Saturday, 6=Sunday)
+            if current.weekday() < 5:  # Monday=0, Friday=4
+                # Calculate hours for this day
+                next_day = current.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+                # Don't go past the end time
+                day_end = min(next_day, end_dt)
+
+                # Add hours for this weekday
+                day_hours = (day_end - current).total_seconds() / 3600
+                total_hours += day_hours
+
+            # Move to next day
+            current = (current + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+            # If we've passed the end time, stop
+            if current >= end_dt:
+                break
+
+        return round(total_hours, 2)
+
+    except (ValueError, TypeError):
+        return 0.0

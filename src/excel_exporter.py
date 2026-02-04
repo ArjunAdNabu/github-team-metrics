@@ -50,6 +50,7 @@ class ExcelExporter:
         total_reviews = sum(d.get('reviews_given', 0) for d in data)
         total_tickets = sum(d.get('total_tickets', 0) for d in data)
         total_tickets_closed = sum(d.get('tickets_closed', 0) for d in data)
+        total_sla_failures = sum(d.get('sla_failures', 0) for d in data)
 
         row = 3
         metrics = [
@@ -62,6 +63,8 @@ class ExcelExporter:
             ('Total Code Reviews', total_reviews),
             ('Total Tickets', total_tickets),
             ('Tickets Closed', total_tickets_closed),
+            ('SLA Failures (>48 business hrs)', total_sla_failures),
+            ('Team SLA Success Rate %', round(((total_tickets_closed - total_sla_failures) / total_tickets_closed * 100), 1) if total_tickets_closed > 0 else 100.0),
             ('Average Commits per Person', round(total_commits / len(data), 1) if data else 0),
             ('Average PRs per Person', round(total_prs / len(data), 1) if data else 0),
         ]
@@ -141,7 +144,10 @@ class ExcelExporter:
             ('Medium Priority', 'tickets_medium_priority'),
             ('Low Priority', 'tickets_low_priority'),
             ('Avg Resolution (hrs)', 'avg_resolution_time_hours'),
+            ('Avg Business Resolution (hrs)', 'avg_business_resolution_hours'),
             ('Avg First Response (hrs)', 'avg_first_response_time_hours'),
+            ('SLA Failures (>48h)', 'sla_failures'),
+            ('SLA Success Rate %', 'sla_success_rate'),
             ('Tickets w/ GitHub Issue', 'tickets_with_github_issue'),
             ('Commits/Ticket', 'commits_per_ticket'),
             ('Activity Score', 'activity_score'),

@@ -198,8 +198,11 @@ class DataCombiner:
             'tickets_medium_priority': ticket_metrics.get('tickets_medium_priority', 0),
             'tickets_low_priority': ticket_metrics.get('tickets_low_priority', 0),
             'avg_resolution_time_hours': ticket_metrics.get('avg_resolution_time_hours', 0),
+            'avg_business_resolution_hours': ticket_metrics.get('avg_business_resolution_hours', 0),
             'avg_first_response_time_hours': ticket_metrics.get('avg_first_response_time_hours', 0),
             'tickets_with_github_issue': ticket_metrics.get('tickets_with_github_issue', 0),
+            'sla_failures': ticket_metrics.get('sla_failures', 0),
+            'sla_success_rate': ticket_metrics.get('sla_success_rate', 100.0),
             'ticket_types': str(ticket_metrics.get('ticket_types', {})),
 
             # Metadata

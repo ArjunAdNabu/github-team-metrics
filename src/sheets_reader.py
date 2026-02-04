@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from .utils import calculate_hours_between, retry_with_exponential_backoff
+from .utils import calculate_hours_between, calculate_business_hours_between, retry_with_exponential_backoff
 
 
 logger = logging.getLogger('github_metrics')
@@ -295,8 +295,10 @@ class TicketMetricsCalculator:
             'tickets_low_priority': 0,
             'ticket_types': defaultdict(int),
             'resolution_times': [],
+            'business_resolution_times': [],
             'first_response_times': [],
-            'tickets_with_github_issue': 0
+            'tickets_with_github_issue': 0,
+            'sla_failures': 0
         })
 
         for ticket in self.tickets:
@@ -329,11 +331,23 @@ class TicketMetricsCalculator:
 
             # Resolution time
             if ticket.get('reported_time') and ticket.get('closed_time'):
+                # Total resolution time (including weekends)
                 resolution_hours = calculate_hours_between(
                     ticket['reported_time'].isoformat(),
                     ticket['closed_time'].isoformat()
                 )
                 metrics['resolution_times'].append(resolution_hours)
+
+                # Business resolution time (excluding weekends)
+                business_hours = calculate_business_hours_between(
+                    ticket['reported_time'].isoformat(),
+                    ticket['closed_time'].isoformat()
+                )
+                metrics['business_resolution_times'].append(business_hours)
+
+                # Check SLA (48 business hours)
+                if business_hours > 48:
+                    metrics['sla_failures'] += 1
 
             # First response time
             if ticket.get('reported_time') and ticket.get('first_response_time'):
@@ -361,10 +375,17 @@ class TicketMetricsCalculator:
                 'avg_resolution_time_hours': round(
                     sum(metrics['resolution_times']) / len(metrics['resolution_times']), 1
                 ) if metrics['resolution_times'] else 0,
+                'avg_business_resolution_hours': round(
+                    sum(metrics['business_resolution_times']) / len(metrics['business_resolution_times']), 1
+                ) if metrics['business_resolution_times'] else 0,
                 'avg_first_response_time_hours': round(
                     sum(metrics['first_response_times']) / len(metrics['first_response_times']), 1
                 ) if metrics['first_response_times'] else 0,
-                'tickets_with_github_issue': metrics['tickets_with_github_issue']
+                'tickets_with_github_issue': metrics['tickets_with_github_issue'],
+                'sla_failures': metrics['sla_failures'],
+                'sla_success_rate': round(
+                    ((metrics['tickets_closed'] - metrics['sla_failures']) / metrics['tickets_closed'] * 100), 1
+                ) if metrics['tickets_closed'] > 0 else 100.0
             }
 
         return result
