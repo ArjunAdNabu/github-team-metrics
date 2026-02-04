@@ -813,10 +813,15 @@ class GitHubMetricsCollector:
                 user_metrics[reviewer_login]['review_times'].append(review_time)
 
         # Process issues
+        valid_issues = 0
+        issues_with_complexity = 0
         for issue in issues:
             # Validate issue (skip invalid or duplicate issues)
             if not self.client._is_valid_issue(issue):
+                logger.debug(f"Issue #{issue.get('number')} filtered out (invalid or no linked PRs)")
                 continue
+
+            valid_issues += 1
 
             # Get the user who closed the issue
             closed_by_nodes = issue.get('closedBy', {}).get('nodes', [])
@@ -836,6 +841,10 @@ class GitHubMetricsCollector:
                         complexity = self.client._extract_complexity_score(issue)
                         if complexity is not None:
                             user_metrics[username]['complexity_scores'].append(complexity)
+                            issues_with_complexity += 1
+                            logger.debug(f"Issue #{issue_number} by {username}: complexity = {complexity}")
+
+        logger.info(f"Processed {valid_issues} valid issues, {issues_with_complexity} with complexity scores")
 
         # Calculate derived metrics
         result = {}
